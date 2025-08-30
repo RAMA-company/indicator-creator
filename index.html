@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Rama Trading Strategy Builder: Create custom trading strategies with drag-and-drop. Supports PineScript, MQL5, and AI insights.">
+  <meta name="keywords" content="trading strategy, drag and drop, PineScript, MQL5, Rama Empire, forex trading, crypto trading">
+  <meta name="author" content="Ali Akbar Rastegari Mehr">
+  <title>Rama Strategy Builder</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.5/Babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dnd@16.0.1/dist/ReactDnD.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dnd-html5-backend@16.0.1/dist/HTML5Backend.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.441.0/dist/umd/lucide-react.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback, createContext, useContext, useRef } = React;
+    const { DndProvider, useDrag, useDrop } = ReactDnD;
+    const { HTML5Backend } = ReactDndHTML5Backend;
+    const { BarChart2, Scale, ArrowRight, Play, Settings, Plus, Save, Upload, Wand, X } = window.Lucide;
+
+    // Simple nanoid replacement for older browsers
+    const nanoid = () => {
+      return 'xxxx-xxxx-xxxx-xxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        return r.toString(16);
+      });
+    };
+
+    const FlowContext = createContext();
+
+    const initialNodes = [
+      { id: '1', type: 'start', position: { x: 50, y: 50 }, data: { label: 'شروع استراتژی' } },
+    ];
+    const initialEdges = [];
+
+    const defaultData = {
+      start: { label: 'شروع استراتژی' },
+      indicator: { label: 'اندیکاتور', type: 'Moving Average', period: 14 },
+      condition: { label: 'شرط', operator: '>', value: 100 },
+      action: { label: 'اقدام', type: 'Buy' },
+    };
+
+    const FlowProvider = ({ children }) => {
+      const [nodes, setNodes] = useState(initialNodes);
+      const [edges, setEdges] = useState(initialEdges);
+      const [selectedNode, setSelectedNode] = useState(null);
+
+      const actions = {
+        addNode: useCallback((type) => {
+          const newNode = {
+            id: nanoid(),
+            type,
+            position: { x: 100 + Math.random() * 200, y: 150 + nodes.length * 100 },
+            data: { ...defaultData[type], label: `${defaultData[type].label}` },
+          };
+          setNodes((nds) => [...nds, newNode]);
+        }, [nodes]),
+
+        updateNodePosition: useCallback((id, position) => {
+          setNodes((nds) => nds.map((node) =>
+            node.id === id ? { ...node, position } : node
+          ));
+        }, []),
+
+        deleteNode: useCallback((id) => {
+          setNodes((nds) => nds.filter((node) => node.id !== id));
+          setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+          setSelectedNode((sel) => (sel?.id === id ? null : sel));
+        }, []),
+
+        updateNodeData: useCallback((id, newData) => {
+          setNodes((nds) => nds.map((node) =>
+            node.id === id ? { ...node, data: { ...node.data, ...newData } } : node
+          ));
+        }, []),
+
+        connectNodes: useCallback((source, target) => {
+          setEdges((eds) => [...eds, { id: nanoid(), source, target }]);
+        }, []),
+
+        setSelectedNode: useCallback((node) => setSelectedNode(node), []),
+
+        saveProject: useCallback(() => {
+          try {
+            localStorage.setItem('nocodequant-project', JSON.stringify({ nodes, edges }));
+            return true;
+          } catch (e) {
+            console.error('Save failed:', e);
+            return false;
+          }
+        }, [nodes, edges]),
+
+        loadProject: useCallback(() => {
+          try {
+            const data = JSON.parse(localStorage.getItem('nocodequant-project'));
+            if (data) {
+              setNodes(data.nodes);
+              setEdges(data.edges);
+              return true;
+            }
+            return false;
+          } catch (e) {
+            console.error('Load failed:', e);
+            return false;
+          }
+        }, []),
+      };
+
+      return (
+        <FlowContext.Provider value={{ nodes, edges, selectedNode, actions }}>
+          {children}
+        </FlowContext.Provider>
+      );
+    };
+
+    const NodeWrapper = ({ children, data, id, type, icon, onClick, isSelected }) => {
+      const { actions } = useContext(FlowContext);
+      const IconComponent = icon;
+
+      const [{ isDragging }, drag] = useDrag({
+        type: 'node',
+        item: { id, type },
+        collect: (monitor) => ({
+          isDragging: monitor.isDragging(),
+        }),
+      });
+
+      const [, drop] = useDrop({
+        accept: 'node',
+        hover: (item, monitor) => {
+          const delta = monitor.getDifferenceFromInitialOffset();
+          if (delta && item.id === id) {
+            actions.updateNodePosition(id, {
+              x: data.position.x + delta.x,
+              y: data.position.y + delta.y,
+            });
+          }
+        },
+      });
+
+      const [, connectDrop] = useDrop({
+        accept: 'node',
+        drop: (item) => {
+          if (item.id !== id) {
+            actions.connectNodes(item.id, id);
+          }
+        },
+      });
+
+      return (
+        <div
+          ref={(node) => drag(drop(connectDrop(node)))}
+          onClick={onClick}
+          style={{
+            top: data.position.y,
+            left: data.position.x,
+            opacity: isDragging ? 0.5 : 1,
+          }}
+          className={`absolute bg-white rounded-xl shadow-md border p-4 min-w-[150px] cursor-move
+            ${isSelected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-200'}`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              {IconComponent && <IconComponent className="text-blue-600 w-5 h-5" />}
+              <span className="text-sm font-semibold truncate text-gray-800">{data.label}</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); actions.deleteNode(id); }}
+              className="text-red-500 hover:text-red-700 text-sm font-bold"
+            >
+              ×
+            </button>
+          </div>
+          {children}
+        </div>
+      );
+    };
+
+    const StartNode = ({ data, id, onClick, isSelected }) => (
+      <NodeWrapper data={data} id={id} type="start" icon={Play} onClick={onClick} isSelected={isSelected}>
+        <p className="text-xs text-gray-500">شروع استراتژی</p>
+      </NodeWrapper>
+    );
+
+    const IndicatorNode = ({ data, id, onClick, isSelected }) => (
+      <NodeWrapper data={data} id={id} type="indicator" icon={BarChart2} onClick={onClick} isSelected={isSelected}>
+        <p className="text-xs text-gray-500">
+          نوع: <span className="font-semibold">{data.type}</span>
+        </p>
+        <p className="text-xs text-gray-500">
+          دوره: <span className="font-semibold">{data.period}</span>
+        </p>
+      </NodeWrapper>
+    );
+
+    const ConditionNode = ({ data, id, onClick, isSelected }) => (
+      <NodeWrapper data={data} id={id} type="condition" icon={Scale} onClick={onClick} isSelected={isSelected}>
+        <p className="text-xs text-gray-500">
+          شرط: <span className="font-semibold">{data.operator}</span>
+        </p>
+        <p className="text-xs text-gray-500">
+          مقدار: <span className="font-semibold">{data.value}</span>
+        </p>
+      </NodeWrapper>
+    );
+
+    const ActionNode = ({ data, id, onClick, isSelected }) => (
+      <NodeWrapper data={data} id={id} type="action" icon={ArrowRight} onClick={onClick} isSelected={isSelected}>
+        <p className="text-xs text-gray-500">
+          اقدام: <span className="font-semibold">{data.type}</span>
+        </p>
+      </NodeWrapper>
+    );
+
+    const nodeComponents = {
+      start: StartNode,
+      indicator: IndicatorNode,
+      condition: ConditionNode,
+      action: ActionNode,
+    };
+
+    const FlowEditor = () => {
+      const { nodes, edges, selectedNode, actions } = useContext(FlowContext);
+      const editorRef = useRef(null);
+
+      const drawLines = () => {
+        return edges.map(edge => {
+          const sourceNode = nodes.find(n => n.id === edge.source);
+          const targetNode = nodes.find(n => n.id === edge.target);
+
+          if (!sourceNode || !targetNode) return null;
+
+          const sourcePos = sourceNode.position;
+          const targetPos = targetNode.position;
+          const sourceCenter = { x: sourcePos.x + 75, y: sourcePos.y + 100 };
+          const targetCenter = { x: targetPos.x + 75, y: targetPos.y };
+
+          const pathData = `M ${sourceCenter.x} ${sourceCenter.y} L ${targetCenter.x} ${targetCenter.y}`;
+          return (
+            <path
+              key={edge.id}
+              d={pathData}
+              stroke="#4f46e5"
+              strokeWidth="2"
+              fill="none"
+            />
+          );
+        });
+      };
+
+      const onNodeClick = useCallback((node) => {
+        actions.setSelectedNode(node);
+      }, [actions]);
+
+      return (
+        <div ref={editorRef} className="relative flex-1 h-full rounded-2xl overflow-hidden border border-gray-300 bg-gray-100">
+          <svg className="absolute w-full h-full z-0 pointer-events-none">
+            {drawLines()}
+          </svg>
+          {nodes.map(node => {
+            const NodeComponent = nodeComponents[node.type];
+            return (
+              <NodeComponent
+                key={node.id}
+                id={node.id}
+                data={{ ...node.data, position: node.position }}
+                onClick={() => onNodeClick(node)}
+                isSelected={selectedNode && selectedNode.id === node.id}
+              />
+            );
+          })}
+        </div>
+      );
+    };
+
+    const SettingsPanel = () => {
+      const { selectedNode, actions } = useContext(FlowContext);
+
+      if (!selectedNode) {
+        return (
+          <div className="bg-white rounded-lg shadow-lg p-6 w-72 h-full overflow-y-auto flex flex-col items-center justify-center border border-gray-200">
+            <p className="text-gray-500 text-sm text-center">یک نود را برای تنظیمات انتخاب کنید</p>
+            <p className="text-gray-400 text-xs mt-2 text-center">برای شروع، یک اندیکاتور یا شرط اضافه کنید!</p>
+          </div>
+        );
+      }
+
+      const handleChange = (key, value) => {
+        actions.updateNodeData(selectedNode.id, { [key]: value });
+      };
+
+      const renderSettings = () => {
+        switch (selectedNode.type) {
+          case 'indicator':
+            return (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="indicator-type" className="block text-sm font-medium text-gray-700">نوع اندیکاتور</label>
+                  <select
+                    id="indicator-type"
+                    value={selectedNode.data.type}
+                    onChange={(e) => handleChange('type', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    <option>Moving Average</option>
+                    <option>RSI</option>
+                    <option>MACD</option>
+                    <option>Bollinger Bands</option>
+                    <option>Stochastic</option>
+                    <option>Volume</option>
+                    <option>ADX</option>
+                    <option>ATR</option>
+                    <option>CCI</option>
+                    <option>Parabolic SAR</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="indicator-period" className="block text-sm font-medium text-gray-700">دوره</label>
+                  <input
+                    id="indicator-period"
+                    type="number"
+                    value={selectedNode.data.period}
+                    onChange={(e) => handleChange('period', parseInt(e.target.value) || 14)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    min={1}
+                  />
+                </div>
+              </div>
+            );
+          case 'condition':
+            return (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="condition-operator" className="block text-sm font-medium text-gray-700">عملگر</label>
+                  <select
+                    id="condition-operator"
+                    value={selectedNode.data.operator}
+                    onChange={(e) => handleChange('operator', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    <option>{'>'}</option>
+                    <option>{'<'}</option>
+                    <option>==</option>
+                    <option>>=</option>
+                    <option><=</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="condition-value" className="block text-sm font-medium text-gray-700">مقدار</label>
+                  <input
+                    id="condition-value"
+                    type="number"
+                    value={selectedNode.data.value}
+                    onChange={(e) => handleChange('value', parseFloat(e.target.value) || 100)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            );
+          case 'action':
+            return (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="action-type" className="block text-sm font-medium text-gray-700">نوع اقدام</label>
+                  <select
+                    id="action-type"
+                    value={selectedNode.data.type}
+                    onChange={(e) => handleChange('type', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    <option>Buy</option>
+                    <option>Sell</option>
+                    <option>Close</option>
+                  </select>
+                </div>
+              </div>
+            );
+          default:
+            return null;
+        }
+      };
+
+      return (
+        <div className="bg-white rounded-lg shadow-lg p-6 w-72 h-full overflow-y-auto border border-gray-200">
+          <div className="flex items-center space-x-2 text-gray-800 mb-4">
+            <Settings className="w-5 h-5" />
+            <h3 className="text-xl font-bold">تنظیمات نود</h3>
+          </div>
+          <p className="text-gray-500 text-sm mb-4">تنظیمات را برای نود انتخاب‌شده تغییر دهید.</p>
+          <div className="border-t border-gray-200 pt-4">
+            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-block mb-3">
+              {selectedNode.type.toUpperCase()}
+            </span>
+            {renderSettings()}
+          </div>
+        </div>
+      );
+    };
+
+    const generatePineScript = (nodes, edges) => {
+      let script = `//@version=5\nstrategy("Rama Strategy", overlay=true)\n\n`;
+
+      const nodeMap = new Map(nodes.map(node => [node.id, node]));
+
+      const getSourceNode = (nodeId) => {
+        const sourceEdge = edges.find(edge => edge.target === nodeId);
+        return sourceEdge ? nodeMap.get(sourceEdge.source) : null;
+      };
+
+      nodes.forEach(node => {
+        if (node.type === 'indicator') {
+          const varName = node.data.type.toLowerCase().replace(/\s/g, '');
+          switch (node.data.type) {
+            case 'Moving Average':
+              script += `var ${varName} = ta.sma(close, ${node.data.period})\n`;
+              break;
+            case 'RSI':
+              script += `var ${varName} = ta.rsi(close, ${node.data.period})\n`;
+              break;
+            case 'MACD':
+              script += `var [macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)\n`;
+              break;
+            case 'Bollinger Bands':
+              script += `var ${varName} = ta.bb(close, ${node.data.period}, 2)\n`;
+              break;
+            case 'Stochastic':
+              script += `var ${varName} = ta.stoch(close, high, low, ${node.data.period})\n`;
+              break;
+            case 'Volume':
+              script += `var ${varName} = volume\n`;
+              break;
+            case 'ADX':
+              script += `var ${varName} = ta.adx(high, low, close, ${node.data.period})\n`;
+              break;
+            case 'ATR':
+              script += `var ${varName} = ta.atr(${node.data.period})\n`;
+              break;
+            case 'CCI':
+              script += `var ${varName} = ta.cci(close, ${node.data.period})\n`;
+              break;
+            case 'Parabolic SAR':
+              script += `var ${varName} = ta.sar(high, low, 0.02, 0.2)\n`;
+              break;
+          }
+        }
+      });
+
+      let hasEntry = false;
+      nodes.forEach(node => {
+        if (node.type === 'condition') {
+          const sourceNode = getSourceNode(node.id);
+          if (sourceNode && sourceNode.type === 'indicator') {
+            const varName = sourceNode.data.type.toLowerCase().replace(/\s/g, '');
+            script += `if (${varName} ${node.data.operator} ${node.data.value})\n`;
+
+            const actionNode = nodes.find(n => {
+              const edge = edges.find(e => e.source === node.id && e.target === n.id);
+              return edge && n.type === 'action';
+            });
+
+            if (actionNode) {
+              if (actionNode.data.type === 'Buy') {
+                script += `    strategy.entry("long", strategy.long)\n`;
+                hasEntry = true;
+              } else if (actionNode.data.type === 'Sell') {
+                script += `    strategy.entry("short", strategy.short)\n`;
+                hasEntry = true;
+              } else if (actionNode.data.type === 'Close') {
+                script += `    strategy.close_all()\n`;
+              }
+            }
+          }
+        }
+      });
+
+      if (!hasEntry) {
+        script += 'strategy.close_all()\n';
+      }
+
+      return script;
+    };
+
+    const MessageModal = ({ title, message, onClose }) => {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm relative">
+            <h3 className="text-xl font-bold mb-2 text-gray-800">{title}</h3>
+            <p className="text-gray-600 mb-4">{message}</p>
+            <button
+              onClick={onClose}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg w-full"
+            >
+              بستن
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const Toolbar = () => {
+      const { nodes, edges, actions } = useContext(FlowContext);
+      const [showCode, setShowCode] = useState(false);
+      const [pineScript, setPineScript] = useState('');
+      const [showModal, setShowModal] = useState(false);
+      const [modalMessage, setModalMessage] = useState('');
+      const [modalTitle, setModalTitle] = useState('');
+
+      const addNode = (type) => actions.addNode(type);
+
+      const handleGenerate = () => {
+        try {
+          const code = generatePineScript(nodes, edges);
+          setPineScript(code);
+          setShowCode(true);
+        } catch (e) {
+          setModalTitle('خطا در تولید کد');
+          setModalMessage('خطایی در تولید PineScript رخ داد. لطفاً نودها را بررسی کنید.');
+          setShowModal(true);
+        }
+      };
+
+      const handleSave = () => {
+        const success = actions.saveProject();
+        setModalTitle(success ? 'پروژه ذخیره شد' : 'خطا در ذخیره');
+        setModalMessage(success ? 'پروژه شما با موفقیت در مرورگر ذخیره شد.' : 'خطایی رخ داد. دوباره امتحان کنید.');
+        setShowModal(true);
+      };
+
+      const handleLoad = () => {
+        const success = actions.loadProject();
+        setModalTitle(success ? 'پروژه بارگذاری شد' : 'خطا در بارگذاری');
+        setModalMessage(success ? 'پروژه شما با موفقیت از مرورگر بارگذاری شد.' : 'پروژه ذخیره‌شده‌ای وجود ندارد.');
+        setShowModal(true);
+      };
+
+      return (
+        <div className="bg-gray-50 p-6 w-56 flex flex-col space-y-4 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center space-x-2 text-gray-800 mb-2">
+            <Plus className="w-5 h-5" />
+            <h3 className="text-xl font-bold">نودها</h3>
+          </div>
+          <button onClick={() => addNode('start')} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+            <Play className="inline-block w-4 h-4 mr-2" />
+            <span>شروع</span>
+          </button>
+          <button onClick={() => addNode('indicator')} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+            <BarChart2 className="inline-block w-4 h-4 mr-2" />
+            <span>اندیکاتور</span>
+          </button>
+          <button onClick={() => addNode('condition')} className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+            <Scale className="inline-block w-4 h-4 mr-2" />
+            <span>شرط</span>
+          </button>
+          <button onClick={() => addNode('action')} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+            <ArrowRight className="inline-block w-4 h-4 mr-2" />
+            <span>اقدام</span>
+          </button>
+          <div className="border-t border-gray-300 pt-4 mt-4 space-y-4">
+            <button onClick={handleSave} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+              <Save className="inline-block w-4 h-4 mr-2" />
+              <span>ذخیره پروژه</span>
+            </button>
+            <button onClick={handleLoad} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+              <Upload className="inline-block w-4 h-4 mr-2" />
+              <span>بارگذاری پروژه</span>
+            </button>
+            <button onClick={handleGenerate} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
+              <Wand className="inline-block w-4 h-4 mr-2" />
+              <span>تولید کد</span>
+            </button>
+          </div>
+          {showCode && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto relative">
+                <h3 className="text-xl font-bold mb-4">کد PineScript تولید شده</h3>
+                <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto text-gray-800 whitespace-pre-wrap">
+                  {pineScript}
+                </pre>
+                <button
+                  onClick={() => setShowCode(false)}
+                  className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6"/>
+                </button>
+              </div>
+            </div>
+          )}
+          {showModal && (
+            <MessageModal
+              title={modalTitle}
+              message={modalMessage}
+              onClose={() => setShowModal(false)}
+            />
+          )}
+        </div>
+      );
+    };
+
+    function App() {
+      return (
+        <DndProvider backend={HTML5Backend}>
+          <FlowProvider>
+            <div className="h-screen w-screen bg-gray-200 flex flex-col p-4 font-sans">
+              <h1 className="text-3xl font-extrabold text-center text
+
+-gray-800 mb-6">ویرایشگر استراتژی بدون کد - Rama Empire</h1>
+              <div className="flex-1 flex space-x-4">
+                <Toolbar />
+                <FlowEditor />
+                <SettingsPanel />
+              </div>
+            </div>
+          </FlowProvider>
+        </DndProvider>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
