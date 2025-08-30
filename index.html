@@ -10,10 +10,9 @@
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.5/Babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dnd@16.0.1/dist/ReactDnD.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dnd-html5-backend@16.0.1/dist/HTML5Backend.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.441.0/dist/umd/lucide-react.min.js"></script>
+  <link href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body>
   <div id="root"></div>
@@ -21,9 +20,61 @@
     const { useState, useCallback, createContext, useContext, useRef } = React;
     const { DndProvider, useDrag, useDrop } = ReactDnD;
     const { HTML5Backend } = ReactDndHTML5Backend;
-    const { BarChart2, Scale, ArrowRight, Play, Settings, Plus, Save, Upload, Wand, X } = window.Lucide;
 
-    // Simple nanoid replacement for older browsers
+    // SVG Icons (replacing lucide-react)
+    const PlayIcon = () => (
+      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 9-14 9V3z" />
+      </svg>
+    );
+    const BarChartIcon = () => (
+      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18v18H3V3zM9 15h2V9H9v6zm4 4h2v-6h-2v6zm4-2h2v-4h-2v4z" />
+      </svg>
+    );
+    const ScaleIcon = () => (
+      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+    );
+    const ArrowRightIcon = () => (
+      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+      </svg>
+    );
+    const SettingsIcon = () => (
+      <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+    const PlusIcon = () => (
+      <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+      </svg>
+    );
+    const SaveIcon = () => (
+      <svg className="w-4 h-4 text-white inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+      </svg>
+    );
+    const UploadIcon = () => (
+      <svg className="w-4 h-4 text-white inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      </svg>
+    );
+    const WandIcon = () => (
+      <svg className="w-4 h-4 text-white inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+    );
+    const XIcon = () => (
+      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+
+    // Simple nanoid replacement
     const nanoid = () => {
       return 'xxxx-xxxx-xxxx-xxxx'.replace(/[xy]/g, (c) => {
         const r = Math.random() * 16 | 0;
@@ -118,9 +169,8 @@
       );
     };
 
-    const NodeWrapper = ({ children, data, id, type, icon, onClick, isSelected }) => {
+    const NodeWrapper = ({ children, data, id, type, icon: IconComponent, onClick, isSelected }) => {
       const { actions } = useContext(FlowContext);
-      const IconComponent = icon;
 
       const [{ isDragging }, drag] = useDrag({
         type: 'node',
@@ -166,7 +216,7 @@
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
-              {IconComponent && <IconComponent className="text-blue-600 w-5 h-5" />}
+              {IconComponent && <IconComponent />}
               <span className="text-sm font-semibold truncate text-gray-800">{data.label}</span>
             </div>
             <button
@@ -182,13 +232,13 @@
     };
 
     const StartNode = ({ data, id, onClick, isSelected }) => (
-      <NodeWrapper data={data} id={id} type="start" icon={Play} onClick={onClick} isSelected={isSelected}>
+      <NodeWrapper data={data} id={id} type="start" icon={PlayIcon} onClick={onClick} isSelected={isSelected}>
         <p className="text-xs text-gray-500">شروع استراتژی</p>
       </NodeWrapper>
     );
 
     const IndicatorNode = ({ data, id, onClick, isSelected }) => (
-      <NodeWrapper data={data} id={id} type="indicator" icon={BarChart2} onClick={onClick} isSelected={isSelected}>
+      <NodeWrapper data={data} id={id} type="indicator" icon={BarChartIcon} onClick={onClick} isSelected={isSelected}>
         <p className="text-xs text-gray-500">
           نوع: <span className="font-semibold">{data.type}</span>
         </p>
@@ -199,7 +249,7 @@
     );
 
     const ConditionNode = ({ data, id, onClick, isSelected }) => (
-      <NodeWrapper data={data} id={id} type="condition" icon={Scale} onClick={onClick} isSelected={isSelected}>
+      <NodeWrapper data={data} id={id} type="condition" icon={ScaleIcon} onClick={onClick} isSelected={isSelected}>
         <p className="text-xs text-gray-500">
           شرط: <span className="font-semibold">{data.operator}</span>
         </p>
@@ -210,7 +260,7 @@
     );
 
     const ActionNode = ({ data, id, onClick, isSelected }) => (
-      <NodeWrapper data={data} id={id} type="action" icon={ArrowRight} onClick={onClick} isSelected={isSelected}>
+      <NodeWrapper data={data} id={id} type="action" icon={ArrowRightIcon} onClick={onClick} isSelected={isSelected}>
         <p className="text-xs text-gray-500">
           اقدام: <span className="font-semibold">{data.type}</span>
         </p>
@@ -388,7 +438,7 @@
       return (
         <div className="bg-white rounded-lg shadow-lg p-6 w-72 h-full overflow-y-auto border border-gray-200">
           <div className="flex items-center space-x-2 text-gray-800 mb-4">
-            <Settings className="w-5 h-5" />
+            <SettingsIcon />
             <h3 className="text-xl font-bold">تنظیمات نود</h3>
           </div>
           <p className="text-gray-500 text-sm mb-4">تنظیمات را برای نود انتخاب‌شده تغییر دهید.</p>
@@ -541,36 +591,36 @@
       return (
         <div className="bg-gray-50 p-6 w-56 flex flex-col space-y-4 rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center space-x-2 text-gray-800 mb-2">
-            <Plus className="w-5 h-5" />
+            <PlusIcon />
             <h3 className="text-xl font-bold">نودها</h3>
           </div>
           <button onClick={() => addNode('start')} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-            <Play className="inline-block w-4 h-4 mr-2" />
+            <PlayIcon className="inline-block w-4 h-4 mr-2" />
             <span>شروع</span>
           </button>
           <button onClick={() => addNode('indicator')} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-            <BarChart2 className="inline-block w-4 h-4 mr-2" />
+            <BarChartIcon className="inline-block w-4 h-4 mr-2" />
             <span>اندیکاتور</span>
           </button>
           <button onClick={() => addNode('condition')} className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-            <Scale className="inline-block w-4 h-4 mr-2" />
+            <ScaleIcon className="inline-block w-4 h-4 mr-2" />
             <span>شرط</span>
           </button>
           <button onClick={() => addNode('action')} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-            <ArrowRight className="inline-block w-4 h-4 mr-2" />
+            <ArrowRightIcon className="inline-block w-4 h-4 mr-2" />
             <span>اقدام</span>
           </button>
           <div className="border-t border-gray-300 pt-4 mt-4 space-y-4">
             <button onClick={handleSave} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-              <Save className="inline-block w-4 h-4 mr-2" />
+              <SaveIcon />
               <span>ذخیره پروژه</span>
             </button>
             <button onClick={handleLoad} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-              <Upload className="inline-block w-4 h-4 mr-2" />
+              <UploadIcon />
               <span>بارگذاری پروژه</span>
             </button>
             <button onClick={handleGenerate} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md">
-              <Wand className="inline-block w-4 h-4 mr-2" />
+              <WandIcon />
               <span>تولید کد</span>
             </button>
           </div>
@@ -585,7 +635,7 @@
                   onClick={() => setShowCode(false)}
                   className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
                 >
-                  <X className="w-6 h-6"/>
+                  <XIcon />
                 </button>
               </div>
             </div>
@@ -606,9 +656,7 @@
         <DndProvider backend={HTML5Backend}>
           <FlowProvider>
             <div className="h-screen w-screen bg-gray-200 flex flex-col p-4 font-sans">
-              <h1 className="text-3xl font-extrabold text-center text
-
--gray-800 mb-6">ویرایشگر استراتژی بدون کد - Rama Empire</h1>
+              <h1 className="text-3xl font-extrabold text-center text-gray-800 mb-6">ویرایشگر استراتژی بدون کد - Rama Empire</h1>
               <div className="flex-1 flex space-x-4">
                 <Toolbar />
                 <FlowEditor />
